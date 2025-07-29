@@ -15,18 +15,18 @@ const pool = new Pool({
 module.exports = async (req, res) => {
   const { method, query } = req;
 
-  // ✅ Set CORS headers to allow requests from your frontend
+  // ✅ Set CORS headers to allow cross-origin requests
   res.setHeader('Access-Control-Allow-Origin', 'https://visualize-inf-pob4.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle OPTIONS request (preflight for CORS)
+  // ✅ Handle CORS preflight request
   if (method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   try {
-    // ✅ GET /api/influencers → fetch all influencers
+    // ✅ GET /api/influencer → fetch all
     if (method === 'GET' && !query.id) {
       const result = await pool.query(
         'SELECT id, username FROM scrapped.instagram_profile_analysis'
@@ -34,11 +34,12 @@ module.exports = async (req, res) => {
       return res.status(200).json(result.rows);
     }
 
-    // ✅ GET /api/influencers?id=123 → fetch specific influencer
+    // ✅ GET /api/influencer?id=xxx → fetch by ID
     if (method === 'GET' && query.id) {
+      const id = query.id.trim(); // sanitize input
       const result = await pool.query(
         'SELECT * FROM scrapped.instagram_profile_analysis WHERE id = $1',
-        [query.id]
+        [id]
       );
 
       if (result.rows.length === 0) {
@@ -47,22 +48,21 @@ module.exports = async (req, res) => {
 
       const influencer = result.rows[0];
 
-      // Parse AI analysis safely if it's wrapped in markdown
-      if (influencer.ai_analysis && influencer.ai_analysis.startsWith('```json')) {
+      // ✅ Try parsing AI analysis if markdown-encoded
+      if (influencer.ai_analysis?.startsWith('```json')) {
         try {
-          const jsonString = influencer.ai_analysis
-            .replace(/```json\s*/, '')
-            .replace(/\s*```$/, '');
-          influencer.ai_analysis = JSON.parse(jsonString);
-        } catch (parseError) {
-          console.error('Error parsing AI analysis:', parseError);
+          influencer.ai_analysis = JSON.parse(
+            influencer.ai_analysis.replace(/```json\s*/, '').replace(/\s*```$/, '')
+          );
+        } catch (err) {
+          console.error('AI analysis parse error:', err);
         }
       }
 
       return res.status(200).json(influencer);
     }
 
-    // ❌ Unsupported method
+    // ❌ Any other method
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('API error:', err);
