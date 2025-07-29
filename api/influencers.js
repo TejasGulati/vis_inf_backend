@@ -1,6 +1,5 @@
 const { Pool } = require('pg');
 
-// PostgreSQL connection pool
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -13,59 +12,75 @@ const pool = new Pool({
 });
 
 module.exports = async (req, res) => {
-  const { method, query } = req;
-
-  // ✅ Set CORS headers to allow requests from your frontend
-  res.setHeader('Access-Control-Allow-Origin', 'https://visualize-inf-pob4.vercel.app');
+  // Set CORS headers - allow all origins for development
+  // For production, replace * with your frontend URL
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle OPTIONS request (preflight for CORS)
-  if (method === 'OPTIONS') {
+  // Handle OPTIONS request (preflight)
+  if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   try {
-    // ✅ GET /api/influencers → fetch all influencers
-    if (method === 'GET' && !query.id) {
+    // Extract ID from either query param or path
+    let influencerId;
+    
+    // Handle /api/influencers?id=123
+    if (req.query.id) {
+      influencerId = req.query.id;
+    } 
+    // Handle /api/influencer/123
+    else if (req.url.startsWith('/api/influencer/')) {
+      influencerId = req.url.split('/')[3];
+    }
+
+    // GET all influencers
+    if (req.method === 'GET' && !influencerId) {
       const result = await pool.query(
         'SELECT id, username FROM scrapped.instagram_profile_analysis'
       );
       return res.status(200).json(result.rows);
     }
 
-    // ✅ GET /api/influencers?id=123 → fetch specific influencer
-    if (method === 'GET' && query.id) {
+    // GET specific influencer
+    if (req.method === 'GET' && influencerId) {
       const result = await pool.query(
         'SELECT * FROM scrapped.instagram_profile_analysis WHERE id = $1',
-        [query.id]
+        [influencerId]
       );
 
       if (result.rows.length === 0) {
         return res.status(404).json({ error: 'Influencer not found' });
       }
 
-      const influencer = result.rows[0];
-
-      // Parse AI analysis safely if it's wrapped in markdown
-      if (influencer.ai_analysis && influencer.ai_analysis.startsWith('```json')) {
+      let influencer = result.rows[0];
+      
+      // Parse AI analysis if it exists
+      if (influencer.ai_analysis) {
         try {
-          const jsonString = influencer.ai_analysis
-            .replace(/```json\s*/, '')
-            .replace(/\s*```$/, '');
+          // Handle both JSON strings and markdown-wrapped JSON
+          let jsonString = influencer.ai_analysis;
+          if (jsonString.startsWith('```json')) {
+            jsonString = jsonString.replace(/```json\s*/, '').replace(/\s*```$/, '');
+          }
           influencer.ai_analysis = JSON.parse(jsonString);
         } catch (parseError) {
           console.error('Error parsing AI analysis:', parseError);
+          influencer.ai_analysis = { error: 'Could not parse analysis' };
         }
       }
 
       return res.status(200).json(influencer);
     }
 
-    // ❌ Unsupported method
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('API error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Database error:', err);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: err.message 
+    });
   }
 };
