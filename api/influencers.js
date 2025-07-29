@@ -15,6 +15,16 @@ const pool = new Pool({
 module.exports = async (req, res) => {
   const { method, query } = req;
 
+  // ✅ Set CORS headers to allow requests from your frontend
+  res.setHeader('Access-Control-Allow-Origin', 'https://visualize-inf-pob4.vercel.app');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS request (preflight for CORS)
+  if (method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     // ✅ GET /api/influencers → fetch all influencers
     if (method === 'GET' && !query.id) {
