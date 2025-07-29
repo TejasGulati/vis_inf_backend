@@ -12,29 +12,29 @@ const pool = new Pool({
 });
 
 module.exports = async (req, res) => {
-  // Set CORS headers - allow all origins for development
-  // For production, replace * with your frontend URL
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // 1. Set CORS headers FIRST - this is crucial
+  const allowedOrigins = [
+    'https://visualize-inf-pob4.vercel.app',
+    'http://localhost:3000' // for local development
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-  // Handle OPTIONS request (preflight)
+  // 2. Handle OPTIONS preflight immediately
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   try {
-    // Extract ID from either query param or path
-    let influencerId;
-    
-    // Handle /api/influencers?id=123
-    if (req.query.id) {
-      influencerId = req.query.id;
-    } 
-    // Handle /api/influencer/123
-    else if (req.url.startsWith('/api/influencer/')) {
-      influencerId = req.url.split('/')[3];
-    }
+    // 3. Extract ID from either query param or path
+    let influencerId = req.query.id || req.url.split('/').pop();
 
     // GET all influencers
     if (req.method === 'GET' && !influencerId) {
@@ -57,18 +57,17 @@ module.exports = async (req, res) => {
 
       let influencer = result.rows[0];
       
-      // Parse AI analysis if it exists
+      // Parse AI analysis
       if (influencer.ai_analysis) {
         try {
-          // Handle both JSON strings and markdown-wrapped JSON
           let jsonString = influencer.ai_analysis;
           if (jsonString.startsWith('```json')) {
             jsonString = jsonString.replace(/```json\s*/, '').replace(/\s*```$/, '');
           }
           influencer.ai_analysis = JSON.parse(jsonString);
-        } catch (parseError) {
-          console.error('Error parsing AI analysis:', parseError);
-          influencer.ai_analysis = { error: 'Could not parse analysis' };
+        } catch (e) {
+          console.error('JSON parse error:', e);
+          influencer.ai_analysis = { error: 'Invalid analysis data' };
         }
       }
 
@@ -77,10 +76,7 @@ module.exports = async (req, res) => {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('Database error:', err);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: err.message 
-    });
+    console.error('Server error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
