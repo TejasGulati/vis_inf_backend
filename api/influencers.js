@@ -15,13 +15,13 @@ export default async function handler(req, res) {
   const { method, query } = req;
 
   // CORS Headers
-// Add these to allowedOrigins
-const allowedOrigins = [
-  'http://localhost:5173', 
-  'https://visualize-inf-pob4.vercel.app',
-  'http://localhost:3000',
-  'https://influencer-analytics-dashboard.vercel.app' // replace with your actual Vercel app domain
-];  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://visualize-inf-pob4.vercel.app',
+    'https://influencer-analytics-dashboard.vercel.app'
+  ];
+  const origin = req.headers.origin;
 
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -34,15 +34,23 @@ const allowedOrigins = [
   }
 
   try {
-    // Fetch all (no ID or username)
+    let result;
+
+    // Fetch all influencers (no ID or username)
     if (method === 'GET' && !query.id && !query.username) {
-      const result = await pool.query(
-        'SELECT id, username FROM scrapped.instagram_profile_analysis'
-      );
+      result = await pool.query(`
+        SELECT 
+          id, 
+          username,
+          follower_count,
+          robust_tier_adjusted_engagement_rate,
+          credibility_score->>'value' as credibility_score,
+          account_tier,
+          primary_categories
+        FROM scrapped.instagram_profile_analysis
+      `);
       return res.status(200).json(result.rows);
     }
-
-    let result;
 
     // Fetch by ID
     if (method === 'GET' && query.id) {
@@ -65,8 +73,10 @@ const allowedOrigins = [
       return res.status(404).json({ error: 'Influencer not found' });
     }
 
-    // Parse AI analysis JSON if needed
+    // Parse result
     const influencer = result.rows[0];
+
+    // Parse AI analysis if needed
     if (influencer.ai_analysis?.startsWith('```json')) {
       try {
         influencer.ai_analysis = JSON.parse(
@@ -76,6 +86,14 @@ const allowedOrigins = [
         console.error('Error parsing AI analysis:', e);
       }
     }
+
+    // Add stats to response
+    influencer.stats = {
+      followers: influencer.follower_count,
+      engagement: influencer.robust_tier_adjusted_engagement_rate,
+      credibility: influencer.credibility_score?.value || influencer.credibility_score,
+      posts: influencer.total_posts_analyzed || null
+    };
 
     return res.status(200).json(influencer);
   } catch (error) {
