@@ -44,7 +44,7 @@ export default async function handler(req, res) {
           username,
           robust_tier_adjusted_engagement_rate,
           credibility_score->>'value' AS credibility_score,
-          account_tier,
+          account_tier
         FROM scrapped.instagram_profile_analysis
       `);
       return res.status(200).json(result.rows);
