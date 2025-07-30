@@ -45,8 +45,7 @@ export default async function handler(req, res) {
       !query.category
     ) {
       result = await pool.query(
-        'SELECT id, username FROM scrapped.influencer_ui'
-      );
+'SELECT id, username, category, categories_combined, location, locations_combined FROM scrapped.influencer_ui'      );
       return res.status(200).json(result.rows);
     }
 
