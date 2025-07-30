@@ -15,13 +15,13 @@ export default async function handler(req, res) {
   const { method, query } = req;
 
   // CORS Headers
-  const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://visualize-inf-pob4.vercel.app',
-    'https://influencer-analytics-dashboard.vercel.app',
-  ];
-  const origin = req.headers.origin;
+// Add these to allowedOrigins
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'https://visualize-inf-pob4.vercel.app',
+  'http://localhost:3000',
+  'https://influencer-analytics-dashboard.vercel.app' // replace with your actual Vercel app domain
+];  const origin = req.headers.origin;
 
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -34,17 +34,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    let result;
-
-    // ✅ Fetch all influencers (no ID or username)
+    // Fetch all (no ID or username)
     if (method === 'GET' && !query.id && !query.username) {
-      result = await pool.query(
+      const result = await pool.query(
         'SELECT id, username FROM scrapped.instagram_profile_analysis'
       );
       return res.status(200).json(result.rows);
     }
 
-    // ✅ Fetch by ID
+    let result;
+
+    // Fetch by ID
     if (method === 'GET' && query.id) {
       result = await pool.query(
         'SELECT * FROM scrapped.instagram_profile_analysis WHERE id = $1',
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
       );
     }
 
-    // ✅ Fetch by username
+    // Fetch by username
     else if (method === 'GET' && query.username) {
       result = await pool.query(
         'SELECT * FROM scrapped.instagram_profile_analysis WHERE username = $1',
@@ -60,14 +60,13 @@ export default async function handler(req, res) {
       );
     }
 
-    // Not found
+    // No match found
     if (!result || result.rows.length === 0) {
       return res.status(404).json({ error: 'Influencer not found' });
     }
 
+    // Parse AI analysis JSON if needed
     const influencer = result.rows[0];
-
-    // ✅ Parse AI analysis if needed
     if (influencer.ai_analysis?.startsWith('```json')) {
       try {
         influencer.ai_analysis = JSON.parse(
@@ -77,14 +76,6 @@ export default async function handler(req, res) {
         console.error('Error parsing AI analysis:', e);
       }
     }
-
-    // ✅ Add stats block if fields exist
-    influencer.stats = {
-      followers: influencer.follower_count ?? null,
-      engagement: influencer.robust_tier_adjusted_engagement_rate ?? null,
-      credibility: influencer.credibility_score?.value ?? influencer.credibility_score ?? null,
-      posts: influencer.total_posts_analyzed ?? null,
-    };
 
     return res.status(200).json(influencer);
   } catch (error) {
