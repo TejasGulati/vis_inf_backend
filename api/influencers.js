@@ -1,4 +1,4 @@
-const { Pool } = require('pg');
+import { Pool } from 'pg';
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -15,7 +15,12 @@ export default async function handler(req, res) {
   const { method, query } = req;
 
   // CORS Headers
-  res.setHeader('Access-Control-Allow-Origin', 'https://visualize-inf-pob4.vercel.app');
+  const allowedOrigins = ['http://localhost:5173', 'https://visualize-inf-pob4.vercel.app'];
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
