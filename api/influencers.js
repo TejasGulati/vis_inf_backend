@@ -20,7 +20,7 @@ const allowedOrigins = [
   'http://localhost:5173', 
   'https://visualize-inf-pob4.vercel.app',
   'http://localhost:3000',
-  'https://influencer-analytics-dashboard.vercel.app' // replace with your actual Vercel app domain
+  'https://swaykart-frontend-next.vercel.app' // replace with your actual Vercel app domain
 ];  const origin = req.headers.origin;
 
   if (allowedOrigins.includes(origin)) {
