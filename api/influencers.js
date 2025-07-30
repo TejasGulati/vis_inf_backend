@@ -36,40 +36,38 @@ export default async function handler(req, res) {
   try {
     let result;
 
-    // ✅ Get all influencers with specific fields
+    // ✅ Fetch all influencers (no ID or username)
     if (method === 'GET' && !query.id && !query.username) {
-      result = await pool.query(`
-        SELECT 
-          id,
-          username,
-          robust_tier_adjusted_engagement_rate,
-          credibility_score->>'value' AS credibility_score,
-          account_tier
-        FROM scrapped.instagram_profile_analysis
-      `);
+      result = await pool.query(
+        'SELECT id, username FROM scrapped.instagram_profile_analysis'
+      );
       return res.status(200).json(result.rows);
     }
 
-    // ✅ Fetch single influencer by ID or username (kept unchanged)
+    // ✅ Fetch by ID
     if (method === 'GET' && query.id) {
       result = await pool.query(
         'SELECT * FROM scrapped.instagram_profile_analysis WHERE id = $1',
         [query.id]
       );
-    } else if (method === 'GET' && query.username) {
+    }
+
+    // ✅ Fetch by username
+    else if (method === 'GET' && query.username) {
       result = await pool.query(
         'SELECT * FROM scrapped.instagram_profile_analysis WHERE username = $1',
         [query.username]
       );
     }
 
+    // Not found
     if (!result || result.rows.length === 0) {
       return res.status(404).json({ error: 'Influencer not found' });
     }
 
     const influencer = result.rows[0];
 
-    // Parse AI JSON if needed
+    // ✅ Parse AI analysis if needed
     if (influencer.ai_analysis?.startsWith('```json')) {
       try {
         influencer.ai_analysis = JSON.parse(
@@ -80,6 +78,7 @@ export default async function handler(req, res) {
       }
     }
 
+    // ✅ Add stats block if fields exist
     influencer.stats = {
       followers: influencer.follower_count ?? null,
       engagement: influencer.robust_tier_adjusted_engagement_rate ?? null,
