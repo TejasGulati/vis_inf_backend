@@ -15,13 +15,13 @@ export default async function handler(req, res) {
   const { method, query } = req;
 
   // CORS Headers
-// Add these to allowedOrigins
-const allowedOrigins = [
-  'http://localhost:5173', 
-  'https://visualize-inf-pob4.vercel.app',
-  'http://localhost:3000',
-  'https://swaykart-frontend-next.vercel.app' // replace with your actual Vercel app domain
-];  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://visualize-inf-pob4.vercel.app',
+    'https://swaykart-frontend-next.vercel.app',
+  ];
+  const origin = req.headers.origin;
 
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -34,40 +34,65 @@ const allowedOrigins = [
   }
 
   try {
-    // Fetch all (no ID or username)
-    if (method === 'GET' && !query.id && !query.username) {
-      const result = await pool.query(
-        'SELECT id, username FROM scrapped.instagram_profile_analysis'
+    let result;
+
+    // --- GET ALL ---
+    if (
+      method === 'GET' &&
+      !query.id &&
+      !query.username &&
+      !query.location &&
+      !query.category
+    ) {
+      result = await pool.query(
+        'SELECT id, username FROM scrapped.influencer_ui'
       );
       return res.status(200).json(result.rows);
     }
 
-    let result;
-
-    // Fetch by ID
+    // --- GET BY ID ---
     if (method === 'GET' && query.id) {
       result = await pool.query(
-        'SELECT * FROM scrapped.instagram_profile_analysis WHERE id = $1',
+        'SELECT * FROM scrapped.influencer_ui WHERE id = $1',
         [query.id]
       );
     }
 
-    // Fetch by username
+    // --- GET BY USERNAME ---
     else if (method === 'GET' && query.username) {
       result = await pool.query(
-        'SELECT * FROM scrapped.instagram_profile_analysis WHERE username = $1',
+        'SELECT * FROM scrapped.influencer_ui WHERE username = $1',
         [query.username]
       );
     }
 
-    // No match found
+    // --- GET BY LOCATION ---
+    else if (method === 'GET' && query.location) {
+      result = await pool.query(
+        'SELECT * FROM scrapped.influencer_ui WHERE location = $1',
+        [query.location]
+      );
+    }
+
+    // --- GET BY CATEGORY ---
+    else if (method === 'GET' && query.category) {
+      result = await pool.query(
+        'SELECT * FROM scrapped.influencer_ui WHERE category = $1',
+        [query.category]
+      );
+    }
+
+    // --- NOT FOUND ---
     if (!result || result.rows.length === 0) {
       return res.status(404).json({ error: 'Influencer not found' });
     }
 
-    // Parse AI analysis JSON if needed
-    const influencer = result.rows[0];
-    if (influencer.ai_analysis?.startsWith('```json')) {
+    // --- PARSE AI JSON (if any and needed) ---
+    const influencer = result.rows.length === 1 ? result.rows[0] : result.rows;
+    if (
+      !Array.isArray(influencer) &&
+      influencer.ai_analysis?.startsWith('```json')
+    ) {
       try {
         influencer.ai_analysis = JSON.parse(
           influencer.ai_analysis.replace(/```json\s*/, '').replace(/\s*```$/, '')
