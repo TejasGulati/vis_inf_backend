@@ -15,8 +15,13 @@ export default async function handler(req, res) {
   const { method, query } = req;
 
   // CORS Headers
-  const allowedOrigins = ['http://localhost:5173', 'https://visualize-inf-pob4.vercel.app'];
-  const origin = req.headers.origin;
+// Add these to allowedOrigins
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'https://visualize-inf-pob4.vercel.app',
+  'http://localhost:3000',
+  'https://influencer-analytics-dashboard.vercel.app' // replace with your actual Vercel app domain
+];  const origin = req.headers.origin;
 
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
