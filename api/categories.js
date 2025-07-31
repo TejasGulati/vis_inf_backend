@@ -38,13 +38,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get all unique categories with influencer counts
+    // Get all unique categories with accurate influencer counts
     const result = await pool.query(`
+      WITH unique_category_influencers AS (
+        SELECT DISTINCT 
+          category,
+          username
+        FROM scrapped.influencer_ui 
+        WHERE category IS NOT NULL AND category != ''
+      )
       SELECT 
         category,
-        COUNT(DISTINCT id) as influencer_count
-      FROM scrapped.influencer_ui 
-      WHERE category IS NOT NULL AND category != ''
+        COUNT(username) as influencer_count
+      FROM unique_category_influencers
       GROUP BY category 
       ORDER BY influencer_count DESC, category ASC
     `);
