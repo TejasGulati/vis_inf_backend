@@ -42,8 +42,7 @@ export default async function handler(req, res) {
     const result = await pool.query(`
       SELECT 
         category,
-        COUNT(DISTINCT id) as influencer_count,
-        COUNT(*) as total_entries
+        COUNT(DISTINCT id) as influencer_count
       FROM scrapped.influencer_ui 
       WHERE category IS NOT NULL AND category != ''
       GROUP BY category 
@@ -52,8 +51,7 @@ export default async function handler(req, res) {
 
     const categories = result.rows.map(row => ({
       name: row.category,
-      influencer_count: parseInt(row.influencer_count),
-      total_entries: parseInt(row.total_entries)
+      influencer_count: parseInt(row.influencer_count)
     }));
 
     return res.status(200).json({

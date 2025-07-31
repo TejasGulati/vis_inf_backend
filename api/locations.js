@@ -42,8 +42,7 @@ export default async function handler(req, res) {
     const result = await pool.query(`
       SELECT 
         location,
-        COUNT(DISTINCT id) as influencer_count,
-        COUNT(*) as total_entries
+        COUNT(DISTINCT id) as influencer_count
       FROM scrapped.influencer_ui 
       WHERE location IS NOT NULL AND location != ''
       GROUP BY location 
@@ -59,8 +58,7 @@ export default async function handler(req, res) {
         name: row.location,
         city: city,
         state: state,
-        influencer_count: parseInt(row.influencer_count),
-        total_entries: parseInt(row.total_entries)
+        influencer_count: parseInt(row.influencer_count)
       };
     });
 
