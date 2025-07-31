@@ -14,7 +14,6 @@ const pool = new Pool({
 export default async function handler(req, res) {
   const { method } = req;
 
-  // CORS Headers
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
@@ -38,31 +37,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get all unique categories with accurate influencer counts
     const result = await pool.query(`
-      WITH unique_category_influencers AS (
-        SELECT DISTINCT 
-          category,
-          username
-        FROM scrapped.influencer_ui 
-        WHERE category IS NOT NULL AND category != ''
-      )
       SELECT 
         category,
-        COUNT(username) as influencer_count
-      FROM unique_category_influencers
-      GROUP BY category 
+        COUNT(DISTINCT id) AS influencer_count
+      FROM scrapped.influencer_ui
+      WHERE category IS NOT NULL AND category != ''
+      GROUP BY category
       ORDER BY influencer_count DESC, category ASC
     `);
 
     const categories = result.rows.map(row => ({
       name: row.category,
-      influencer_count: parseInt(row.influencer_count)
+      influencer_count: parseInt(row.influencer_count),
     }));
 
     return res.status(200).json({
       total_categories: categories.length,
-      categories: categories
+      categories,
     });
 
   } catch (error) {

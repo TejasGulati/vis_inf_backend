@@ -14,7 +14,6 @@ const pool = new Pool({
 export default async function handler(req, res) {
   const { method } = req;
 
-  // CORS Headers
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
@@ -38,14 +37,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get all unique locations with influencer counts
     const result = await pool.query(`
       SELECT 
         location,
-        COUNT(DISTINCT id) as influencer_count
-      FROM scrapped.influencer_ui 
+        COUNT(DISTINCT id) AS influencer_count
+      FROM scrapped.influencer_ui
       WHERE location IS NOT NULL AND location != ''
-      GROUP BY location 
+      GROUP BY location
       ORDER BY influencer_count DESC, location ASC
     `);
 
@@ -53,29 +51,26 @@ export default async function handler(req, res) {
       const locationParts = row.location.split(',');
       const city = locationParts[0]?.trim() || '';
       const state = locationParts[1]?.trim() || '';
-      
+
       return {
         name: row.location,
-        city: city,
-        state: state,
-        influencer_count: parseInt(row.influencer_count)
+        city,
+        state,
+        influencer_count: parseInt(row.influencer_count),
       };
     });
 
-    // Group by state/country for better organization (optional)
-    const groupedLocations = locations.reduce((acc, location) => {
+    const grouped_by_state = locations.reduce((acc, location) => {
       const state = location.state || 'Other';
-      if (!acc[state]) {
-        acc[state] = [];
-      }
+      if (!acc[state]) acc[state] = [];
       acc[state].push(location);
       return acc;
     }, {});
 
     return res.status(200).json({
       total_locations: locations.length,
-      locations: locations,
-      grouped_by_state: groupedLocations
+      locations,
+      grouped_by_state,
     });
 
   } catch (error) {
