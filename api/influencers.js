@@ -36,7 +36,7 @@ export default async function handler(req, res) {
   try {
     let result;
 
-    // --- GET ALL ---
+    // --- GET ALL with PAGINATION ---
     if (
       method === 'GET' &&
       !query.id &&
@@ -44,9 +44,35 @@ export default async function handler(req, res) {
       !query.location &&
       !query.category
     ) {
+      const page = parseInt(query.page) || 1;
+      const limit = parseInt(query.limit) || 16;
+      const offset = (page - 1) * limit;
+
+      // Get total count
+      const countResult = await pool.query(
+        'SELECT COUNT(*) FROM scrapped.influencer_ui'
+      );
+      const total = parseInt(countResult.rows[0].count);
+
+      // Get paginated results
       result = await pool.query(
-'SELECT id, username, category, categories_combined, location, locations_combined FROM scrapped.influencer_ui'      );
-      return res.status(200).json(result.rows);
+        `SELECT id, username, category, categories_combined, 
+                location, locations_combined 
+         FROM scrapped.influencer_ui 
+         ORDER BY id 
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      );
+
+      return res.status(200).json({
+        influencers: result.rows,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit)
+        }
+      });
     }
 
     // --- GET BY ID ---
@@ -86,7 +112,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Influencer not found' });
     }
 
-    // --- PARSE AI JSON (if any and needed) ---
+    // --- PARSE AI JSON ---
     const influencer = result.rows.length === 1 ? result.rows[0] : result.rows;
     if (
       !Array.isArray(influencer) &&
