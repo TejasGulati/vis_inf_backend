@@ -35,50 +35,103 @@ export default async function handler(req, res) {
 
   try {
     let result;
+    let countResult;
 
-    // --- GET ALL ---
-    if (
-      method === 'GET' &&
-      !query.id &&
-      !query.username &&
-      !query.location &&
-      !query.category
-    ) {
-      result = await pool.query(
-'SELECT id, username, category, categories_combined, location, locations_combined FROM scrapped.influencer_ui'      );
-      return res.status(200).json(result.rows);
-    }
+    // Extract pagination and filter parameters
+    const limit = parseInt(query.limit) || 16;
+    const offset = parseInt(query.offset) || 0;
+    const search = query.search || '';
+    const category = query.category || '';
+    const location = query.location || '';
 
-    // --- GET BY ID ---
+    // --- GET BY ID (unchanged) ---
     if (method === 'GET' && query.id) {
       result = await pool.query(
         'SELECT * FROM scrapped.influencer_ui WHERE id = $1',
         [query.id]
       );
     }
-
-    // --- GET BY USERNAME ---
+    // --- GET BY USERNAME (unchanged) ---
     else if (method === 'GET' && query.username) {
       result = await pool.query(
         'SELECT * FROM scrapped.influencer_ui WHERE username = $1',
         [query.username]
       );
     }
+    // --- PAGINATED GET WITH FILTERS ---
+    else if (method === 'GET' && (limit || offset || search || category || location)) {
+      // Build WHERE conditions
+      let whereConditions = [];
+      let queryParams = [];
+      let paramIndex = 1;
 
-    // --- GET BY LOCATION ---
-    else if (method === 'GET' && query.location) {
-      result = await pool.query(
-        'SELECT * FROM scrapped.influencer_ui WHERE location = $1',
-        [query.location]
-      );
+      // Search filter
+      if (search) {
+        whereConditions.push(`username ILIKE $${paramIndex}`);
+        queryParams.push(`%${search}%`);
+        paramIndex++;
+      }
+
+      // Category filter
+      if (category) {
+        whereConditions.push(`(category = $${paramIndex} OR categories_combined ILIKE $${paramIndex + 1})`);
+        queryParams.push(category);
+        queryParams.push(`%${category}%`);
+        paramIndex += 2;
+      }
+
+      // Location filter
+      if (location) {
+        whereConditions.push(`(location = $${paramIndex} OR locations_combined ILIKE $${paramIndex + 1})`);
+        queryParams.push(location);
+        queryParams.push(`%${location}%`);
+        paramIndex += 2;
+      }
+
+      const whereClause = whereConditions.length > 0 
+        ? `WHERE ${whereConditions.join(' AND ')}` 
+        : '';
+
+      // Get total count for pagination info
+      const countQuery = `
+        SELECT COUNT(DISTINCT username) as total 
+        FROM scrapped.influencer_ui 
+        ${whereClause}
+      `;
+      
+      countResult = await pool.query(countQuery, queryParams);
+      const totalCount = parseInt(countResult.rows[0].total);
+
+      // Get paginated results with deduplication
+      const dataQuery = `
+        SELECT DISTINCT ON (username) 
+          id, username, category, categories_combined, location, locations_combined
+        FROM scrapped.influencer_ui 
+        ${whereClause}
+        ORDER BY username, id
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `;
+      
+      queryParams.push(limit, offset);
+      result = await pool.query(dataQuery, queryParams);
+
+      // Return paginated response
+      return res.status(200).json({
+        influencers: result.rows,
+        totalCount,
+        page: Math.floor(offset / limit) + 1,
+        totalPages: Math.ceil(totalCount / limit),
+        hasMore: offset + limit < totalCount,
+        limit,
+        offset
+      });
     }
-
-    // --- GET BY CATEGORY ---
-    else if (method === 'GET' && query.category) {
+    // --- GET ALL (fallback for legacy support) ---
+    else if (method === 'GET') {
       result = await pool.query(
-        'SELECT * FROM scrapped.influencer_ui WHERE category = $1',
-        [query.category]
+        'SELECT id, username, category, categories_combined, location, locations_combined FROM scrapped.influencer_ui'
       );
+      return res.status(200).json(result.rows);
     }
 
     // --- NOT FOUND ---
