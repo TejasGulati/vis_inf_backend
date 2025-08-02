@@ -20,6 +20,7 @@ export default async function handler(req, res) {
     'http://localhost:3000',
     'https://visualize-inf-pob4.vercel.app',
     'https://swaykart-frontend-next.vercel.app',
+    'https://static-swaykart.vercel.app'
   ];
   const origin = req.headers.origin;
 
